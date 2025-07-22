@@ -24,9 +24,24 @@ CRGB my_custom_16_color_palette_data[16]; // Mảng CRGB để lưu trữ 16 mà
 bool paletteInputNeeded = true; 
 String serialInputBuffer = ""; // Buffer để xây dựng chuỗi từ Serial
 
+// Hàm để hiển thị hướng dẫn nhập bảng màu
+void printPaletteInputInstructions() {
+  Serial.println("\n--- Nhap Bang Mau ---");
+  Serial.println("Vui long nhap 16 ma mau hex (vi du: 0xFF0000, 0x00FF00, ...):");
+  Serial.println("Cac ma mau phai duoc phan cach bang dau phay hoac dau cach.");
+  Serial.println("Ban co the su dung tien to '0x' hoac khong. Nhan Enter sau khi nhap xong.");
+  Serial.println("De nhap lai bang mau bat ky luc nao, nhap '111' va nhan Enter.");
+  Serial.println("Dang cho du lieu tu Serial...");
+  
+  // Tắt tất cả các LED và bật LED đầu tiên nhấp nháy để báo hiệu đang chờ input
+  FastLED.clear();
+  leds[0] = CRGB::White; // Bật LED 0 màu trắng
+  FastLED.show();
+}
+
 // Hàm để phân tích chuỗi màu đã nhận được
 void parsePaletteString(String inputString) {
-  inputString.trim(); // Xóa khoảng trắng ở đầu/cuối
+  inputString.trim(); // Xoa khoang trang o dau/cuoi
 
   Serial.print("Chuoi dau vao da doc: '");
   Serial.print(inputString);
@@ -34,7 +49,7 @@ void parsePaletteString(String inputString) {
   Serial.print("Do dai chuoi dau vao: ");
   Serial.println(inputString.length()); 
 
-  char charArray[inputString.length() + 1]; 
+  char charArray[200]; // Đảm bảo kích thước đủ lớn
   inputString.toCharArray(charArray, sizeof(charArray));
   charArray[inputString.length()] = '\0'; // Đảm bảo chuỗi kết thúc bằng null
 
@@ -75,10 +90,13 @@ void parsePaletteString(String inputString) {
     Serial.print("Loi: Chi nhan duoc ");
     Serial.print(colorCount);
     Serial.println(" ma mau. Vui long nhap lai du 16 ma mau.");
+    // Đảm bảo các màu còn lại là đen nếu không đủ
     for (int i = colorCount; i < 16; i++) {
         my_custom_16_color_palette_data[i] = CRGB::Black;
     }
-    // Giữ paletteInputNeeded là true để yêu cầu nhập lại
+    // paletteInputNeeded vẫn là true, nên chương trình sẽ tiếp tục chờ input.
+    // In lại hướng dẫn để người dùng biết cần nhập lại.
+    printPaletteInputInstructions(); 
   }
   Serial.println("-------------------------");
 }
@@ -87,56 +105,73 @@ void setup() {
   Serial.begin(115200); 
   while (!Serial); 
 
-FastLED.setCorrection(TypicalLEDStrip);        // Hiển thị màu trung thực hơn
   FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);
-  FastLED.setBrightness(128); 
+  FastLED.setBrightness(80); 
 
   // Hiển thị hướng dẫn nhập bảng màu khi khởi động
-  Serial.println("\n--- Nhap Bang Mau ---");
-  Serial.println("Vui long nhap 16 ma mau hex (vi du: 0xFF0000, 0x00FF00, ...):");
-  Serial.println("Cac ma mau phai duoc phan cach bang dau phay hoac dau cach.");
-  Serial.println("Ban co the su dung tien to '0x' hoac khong. Nhan Enter sau khi nhap xong.");
-  Serial.println("Dang cho du lieu tu Serial...");
+  printPaletteInputInstructions();
 }
 
 void loop() {
-  // Nếu cần nhập bảng màu, hãy xử lý input Serial
-  if (paletteInputNeeded) {
-    while (Serial.available()) {
-      char incomingChar = Serial.read();
-      if (incomingChar == '\n') { // Nếu nhận được ký tự xuống dòng
+  // Luôn kiểm tra dữ liệu Serial đến
+  while (Serial.available()) {
+    char incomingChar = Serial.read();
+    if (incomingChar == '\n') { // Nếu nhận được ký tự xuống dòng
+      serialInputBuffer.trim(); // Xóa khoảng trắng ở đầu/cuối của buffer
+
+      // Kiểm tra nếu lệnh là "111" để reset
+      if (serialInputBuffer.equals("111")) {
+        Serial.println("\nLenh '111' da nhan! Quay lai che do nhap bang mau.");
+        paletteInputNeeded = true; // Đặt lại cờ để yêu cầu nhập bảng màu
+        serialInputBuffer = ""; // Xóa buffer
+        FastLED.clear(); // Tắt đèn LED
+        FastLED.show();
+        printPaletteInputInstructions(); // In lại hướng dẫn
+      } else if (paletteInputNeeded) { // Nếu đang ở chế độ chờ nhập bảng màu
         parsePaletteString(serialInputBuffer); // Phân tích chuỗi đã xây dựng
         serialInputBuffer = ""; // Xóa buffer cho lần nhập tiếp theo
-        // Nếu parsePaletteString thành công, paletteInputNeeded sẽ được đặt thành false
-        // Nếu không, nó vẫn là true để yêu cầu nhập lại
-      } else if (incomingChar != '\r') { // Bỏ qua ký tự Carriage Return ('\r')
-        serialInputBuffer += incomingChar; // Thêm ký tự vào buffer
+      } else { // Nếu đang chạy hiệu ứng và nhận được input không phải lệnh reset
+        Serial.print("Lenh khong hop le hoac du lieu thua: '");
+        Serial.print(serialInputBuffer);
+        Serial.println("'");
+        serialInputBuffer = ""; // Xóa buffer
       }
+    } else if (incomingChar != '\r') { // Bỏ qua ký tự Carriage Return ('\r')
+      serialInputBuffer += incomingChar; // Thêm ký tự vào buffer
     }
-    // Nếu chưa nhận đủ input, không chạy hiệu ứng LED
-    // Bạn có thể thêm một hiệu ứng chờ ở đây (ví dụ: nhấp nháy đèn báo)
-    FastLED.clear();
-    FastLED.show();
-    return; // Thoát khỏi loop để chờ input
   }
 
   // Chạy hiệu ứng LED chỉ khi bảng màu đã được nhập thành công
-  CRGBPalette16 currentPalette = my_custom_16_color_palette_data; 
+  if (!paletteInputNeeded) {
+    CRGBPalette16 currentPalette = my_custom_16_color_palette_data; 
 
-  CRGB currentColor = ColorFromPalette(currentPalette, gHue, 128, LINEARBLEND); 
+    CRGB currentColor = ColorFromPalette(currentPalette, gHue); 
 
-  for(int i = 0; i < NUM_LEDS; i++) {
-    leds[i] = currentColor;
+    for(int i = 0; i < NUM_LEDS; i++) {
+      leds[i] = currentColor;
+    }
+    
+    FastLED.show();
+    
+    gHue += gDirection;
+
+    if (gHue == 255 || gHue == 0) {
+      gDirection *= -1; 
+    }
+    
+    delay(50); 
+  } else {
+    // Nếu chưa nhận đủ input, không chạy hiệu ứng LED
+    // Hiển thị nhấp nháy LED 0 để báo hiệu đang chờ input
+    static unsigned long lastBlinkTime = 0;
+    if (millis() - lastBlinkTime > 500) { // Nhấp nháy mỗi 500ms
+      lastBlinkTime = millis();
+      if (leds[0] == CRGB::White) {
+        leds[0] = CRGB::Black;
+      } else {
+        leds[0] = CRGB::White;
+      }
+      FastLED.show();
+    }
   }
-  
-  FastLED.show();
-  
-  gHue += gDirection;
-
-  if (gHue == 255 || gHue == 0) {
-    gDirection *= -1; 
-     Serial.println("--- change direction ---");
-  }
-  
-  delay(50); 
 }
