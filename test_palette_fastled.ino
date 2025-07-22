@@ -165,7 +165,7 @@ void loop()
     if (!paletteInputNeeded)
     {
         CRGBPalette16 currentPalette = my_custom_16_color_palette_data;
-        CRGB currentColor = ColorFromPalette(currentPalette, gHue, 128, LINEARBLEND);
+        CRGB currentColor = ColorFromPalette(currentPalette, gHue, 128, LINEARBLEND_NOWRAP);
 
         for (int i = 0; i < NUM_LEDS; i++)
         {
@@ -182,37 +182,37 @@ void loop()
             if (gHue == 255)
             {
                 Serial.println("--- is 255 and back ---");
-                leds[0] == CRGB::Red;
+                leds[0] == CRGB::Black;
                 FastLED.show();
-                FastLed.delay(3000); // Dừng lại một chút khi đạt đến 255
+                FastLED.delay(3000); // Dừng lại một chút khi đạt đến 255
             }
             else
             {
                 Serial.println("--- is 0 and forward ---");
                 leds[0] = CRGB::Green; // Đặt LED 0 thành màu xanh lá cây khi quay lại
                 FastLED.show();
-                FastLed.delay(3000); // Dừng lại một chút khi đạt đến 255}
+                FastLED.delay(3000); // Dừng lại một chút khi đạt đến 255}
             }
-
-            delay(25);
         }
-        else
-        {
-            // Nếu chưa nhận đủ input, không chạy hiệu ứng LED
-            // Hiển thị nhấp nháy LED 0 để báo hiệu đang chờ input
-            static unsigned long lastBlinkTime = 0;
-            if (millis() - lastBlinkTime > 500)
-            { // Nhấp nháy mỗi 500ms
-                lastBlinkTime = millis();
-                if (leds[0] == CRGB::White)
-                {
-                    leds[0] = CRGB::Black;
-                }
-                else
-                {
-                    leds[0] = CRGB::White;
-                }
-                FastLED.show();
+        delay(25);
+    }
+    else
+    {
+        // Nếu chưa nhận đủ input, không chạy hiệu ứng LED
+        // Hiển thị nhấp nháy LED 0 để báo hiệu đang chờ input
+        static unsigned long lastBlinkTime = 0;
+        if (millis() - lastBlinkTime > 500)
+        { // Nhấp nháy mỗi 500ms
+            lastBlinkTime = millis();
+            if (leds[0] == CRGB::White)
+            {
+                leds[0] = CRGB::Black;
             }
+            else
+            {
+                leds[0] = CRGB::White;
+            }
+            FastLED.show();
         }
     }
+}
